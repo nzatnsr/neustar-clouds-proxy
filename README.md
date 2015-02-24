@@ -15,8 +15,21 @@ To build all components.
 
 ### How to run
 
-    mvn jetty:run
+    mvn sprint-boot:run
 
 Then the proxy status page is available at
 
-    http://localhost:10288/proxies/status
+    http://localhost:8080/proxies/status
+
+which would provide the sample output:
+
+    HTTP/1.1 200 OK
+    Server: Apache-Coyote/1.1
+    Content-Type: application/json;charset=UTF-8
+    Transfer-Encoding: chunked
+    Date: Fri, 19 Sep 2014 15:37:06 GMT
+
+    {
+      "id" : 2,
+      "time_started" : "2014-09-19T15:36:54.478+0000"
+    }
