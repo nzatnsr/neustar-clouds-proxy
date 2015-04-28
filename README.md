@@ -15,7 +15,7 @@ To build all components.
 
 ### How to run
 
-    mvn sprint-boot:run
+    mvn spring-boot:run
 
 Then the proxy status page is available at
 

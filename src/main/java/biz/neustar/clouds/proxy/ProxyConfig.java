@@ -27,6 +27,11 @@ public class ProxyConfig
 	@Value("${proxy.xdi.env}")
 	private String xdiEnv;
 
+	@Value("${proxy.admin.username}")
+	private String adminUsername;
+
+	@Value("${proxy.admin.password}")
+	private String adminPassword;
 
 	public ProxyConfig()
 	{
@@ -70,5 +75,25 @@ public class ProxyConfig
 	public void setXdiEnv( String xdiEnv )
 	{
 		this.xdiEnv = xdiEnv;
+	}
+
+	public String getAdminUsername()
+	{
+		return this.adminUsername;
+	}
+
+	public void setAdminUsername( String adminUsername )
+	{
+		this.adminUsername = adminUsername;
+	}
+
+	public String getAdminPassword()
+	{
+		return this.adminPassword;
+	}
+
+	public void setAdminPassword( String adminPassword )
+	{
+		this.adminPassword = adminPassword;
 	}
 }

@@ -5,7 +5,7 @@
 
     <groupId>biz.neustar</groupId>
     <artifactId>neustar-clouds-proxy</artifactId>
-    <version>0.1-SNAPSHOT</version>
+    <version>0.2-SNAPSHOT</version>
     <name>neustar-clouds-proxy</name>
     <description>Neustar Clouds Proxy</description>
 

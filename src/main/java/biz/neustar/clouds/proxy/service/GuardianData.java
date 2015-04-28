@@ -58,6 +58,15 @@ public class GuardianData extends GuardianInfo
 		this.cloudUrl = cloudUrl;
 	}
 
+	public void setDependent( List<DependentData> list )
+	{
+		this.dependent.clear();
+		if( list != null )
+		{
+			this.dependent.addAll(list);
+		}
+	}
+
 	public List<DependentData> getDependent()
 	{
 		return this.dependent;

@@ -34,8 +34,7 @@ public class ProxyService
 	private int               minPortNumber = 8900; 
 	private int               maxPortNumber = 9000; 
 
-	private List<DependentData> dependentList;
-	private GuardianData        guardian;
+	private List<GuardianData> guardianList;
 
 	public static ProxyService getInstance()
 	{
@@ -53,7 +52,7 @@ public class ProxyService
 
 	public ProxyService()
 	{
-		this.dependentList = new ArrayList<DependentData>();
+		this.guardianList = new ArrayList<GuardianData>();
 		if( ProxyApplication.getConfig().getMinPortNumber() != null )
 		{
 			this.minPortNumber = ProxyApplication.getConfig().getMinPortNumber().intValue();
@@ -82,10 +81,64 @@ public class ProxyService
 		catch( Exception e )
 		{
 			String error = "getAccessInfo() failed";
-			logger.error(error + " - " + this.guardian, e);
+			logger.error(error + " - " + data, e);
 			throw new ProxyInternalErrorException(error);
 		}
 
+		return rtn;
+	}
+
+	private GuardianData getGuardianData( DependentInfo info )
+	{
+		GuardianData rtn = null;
+		for( GuardianData data : this.guardianList )
+		{
+			List<DependentData> list = data.getDependent();
+			for( DependentData dep : list )
+			{
+				if( dep.getCloudName().equals(info.getCloudName()) )
+				{
+					rtn = data;
+					break;
+				}
+			}
+		}
+		if( rtn == null )
+		{
+			throw new GuardianAuthenticationFailureException("Guardian authentication not performed");
+		}
+		return rtn;
+	}
+
+	private GuardianData getGuardianData( GuardianInfo info )
+	{
+		return this.getGuardianData(info, false);
+	}
+
+	private GuardianData getGuardianData( GuardianInfo info, boolean flag )
+	{
+		GuardianData rtn = null;
+		for( GuardianData data : this.guardianList )
+		{
+			if( data.getCloudName().equals(info.getCloudName()) )
+			{
+				rtn = data;
+				break;
+			}
+		}
+		if( flag == true )
+		{
+			return rtn;
+		}
+		if( rtn == null )
+		{
+			throw new GuardianAuthenticationFailureException("Guardian authentication not performed");
+		}
+		if(    (rtn.getCloudName().equals(info.getCloudName()) == false)
+		    || (rtn.getSecretToken().equals(info.getSecretToken()) == false) )
+		{
+			throw new GuardianAuthenticationFailureException("Guardian authentication failed");
+		}
 		return rtn;
 	}
 
@@ -100,123 +153,113 @@ public class ProxyService
 		catch( Exception e )
 		{
 			String error = "getGuardianInfo() failed";
-			logger.error(error + " - " + this.guardian, e);
+			logger.error(error + " - " + data, e);
 			throw new ProxyInternalErrorException(error);
 		}
 
 		return rtn;
 	}
 
-	public GuardianInfo getGuardian()
+	public GuardianInfo getGuardian( GuardianInfo info )
 	{
-		GuardianInfo rtn = null;
-		if( this.guardian != null )
-		{
-			rtn = getGuardianInfo(this.guardian);
-		}
-		else
-		{
-			throw new GuardianAuthenticationFailureException("Guardian authentication not performed");
-		}
+		GuardianData data = this.getGuardianData(info);
+		GuardianInfo rtn  = this.getGuardianInfo(data);
 		rtn.setSecretToken(null);
 		return rtn;
 	}
 
-	public GuardianInfo setGuardian( GuardianInfo info )
+	public synchronized GuardianInfo setGuardian( GuardianInfo info )
 	{
-		if( this.guardian != null )
-		{
-			if(    this.guardian.getCloudName().equals(info.getCloudName())
-			    && this.guardian.getSecretToken().equals(info.getSecretToken()) )
-			{
-				GuardianInfo rtn = getGuardianInfo(this.guardian);
-				rtn.setSecretToken(null);
-				return rtn;
-			}
-			throw new GuardianAuthenticationCompletedException("Guardian authentication already completed");
-		}
-		GuardianData data = ProxyXdiService.verifyGuardian(info);
+		GuardianInfo rtn  = null;
+		GuardianData data = this.getGuardianData(info, true);
 		if( data != null )
 		{
-			this.guardian = data;
-			data.setTimeStarted(new Date());
+			if(    (data.getCloudName().equals(info.getCloudName()) == false)
+			    || (data.getSecretToken().equals(info.getSecretToken()) == false) )
+			{
+				throw new GuardianAuthenticationCompletedException("Guardian re-authentication failure");
+			}
+			rtn = this.getGuardianInfo(data);
+			rtn.setSecretToken(null);
+			return rtn;
 		}
-		else
+		data = ProxyXdiService.verifyGuardian(info);
+		if( data == null )
 		{
 			throw new GuardianAuthenticationFailureException("Guardian authentication failure");
 		}
+		data.setTimeStarted(new Date());
 		List<DependentData> list = ProxyXdiService.getDependent(data);
 		if( list != null )
 		{
-			this.dependentList = list;
+			data.setDependent(list);
 		}
-		GuardianInfo rtn = getGuardianInfo(data);
+		this.guardianList.add(data);
+
+		rtn = getGuardianInfo(data);
 		rtn.setSecretToken(null);
+
+		logger.info("Guardian " + rtn + " added");
+
 		return rtn;
 	}
 
 	public GuardianInfo deleteGuardian( GuardianInfo info )
 	{
-		if( this.guardian == null )
+		GuardianData data = this.getGuardianData(info);
+		List<DependentData> list = data.getDependent();
+		if( list != null )
 		{
-			throw new GuardianAuthenticationFailureException("Guardian authentication not performed");
-		}
-		if(    (this.guardian.getCloudName().equals(info.getCloudName()) == false)
-		    || (this.guardian.getSecretToken().equals(info.getSecretToken()) == false) )
-		{
-			throw new GuardianAuthenticationFailureException("Guardian authentication failure");
-		}
-		for( DependentData dep : this.dependentList )
-		{
-			if( dep.getPort() != null )
+			for( DependentData dep : list )
 			{
-				throw new DependentProxyNotTerminatedException("Dependent proxy not terminated");
+				if( dep.getPort() != null )
+				{
+					throw new DependentProxyNotTerminatedException("Dependent proxy not terminated");
+				}
 			}
 		}
-		GuardianInfo rtn = getGuardianInfo(this.guardian);
+		GuardianInfo rtn = this.getGuardianInfo(data);
 		rtn.setSecretToken(null);
-		this.guardian = null;
-		this.dependentList.clear();
+
+		this.guardianList.remove(data);
+		data.getDependent().clear();
+
+		logger.info("Guardian " + rtn + " added");
+
 		return rtn;
 	}
 
-	public List<DependentInfo> listDependentProxy()
+	public List<DependentInfo> listDependentProxy( GuardianInfo info )
 	{
 		logger.info("listDependentProxy");
 
-		if( this.guardian == null )
-		{
-			throw new GuardianAuthenticationFailureException("Guardian authentication not performed");
-		}
-
+		GuardianData data = this.getGuardianData(info);
 		List<DependentInfo> rtn = new ArrayList<DependentInfo>();
-		for( DependentData dep : dependentList )
+		List<DependentData> list = data.getDependent();
+		for( DependentData dep : list )
 		{
-			DependentInfo info = getDependentInfo(dep);
-			info.setSecretToken(null);
-			rtn.add(info);
+			DependentInfo dinfo = getDependentInfo(dep);
+			dinfo.setSecretToken(null);
+			rtn.add(dinfo);
 		}
 		return rtn;
 	}
 
-	public DependentInfo getDependentProxy( String cloudName )
+	public DependentInfo getDependentProxy( String cloudName, GuardianInfo info )
 	{
 		logger.info("getDependentProxy - " + cloudName);
-
-		if( this.guardian == null )
-		{
-			throw new GuardianAuthenticationFailureException("Guardian authentication not performed");
-		}
 
 		if( StringUtils.isBlank(cloudName) == true )
 		{
 			throw new CloudNameInvalidException("Dependent cloud name invalid");
 		}
-		for( DependentData data : this.dependentList )
+		GuardianData data = this.getGuardianData(info);
+		List<DependentData> list = data.getDependent();
+		for( DependentData dep : list )
 		{
-			if( cloudName.equals(data.getCloudName()) == true )
+			if( cloudName.equals(dep.getCloudName()) == true )
 			{
-				DependentInfo rtn = getDependentInfo(data);
+				DependentInfo rtn = this.getDependentInfo(dep);
 				rtn.setSecretToken(null);
 				return rtn;
 			}
@@ -234,40 +277,55 @@ public class ProxyService
 		catch( Exception e )
 		{
 			String error = "getDependentInfo() failed";
-			logger.error(error + " - " + this.guardian, e);
+			logger.error(error + " - " + data, e);
 			throw new ProxyInternalErrorException(error);
 		}
 		return rtn;
 	}
 
-	public DependentInfo startDependentProxy( DependentInfo info )
+	private DependentData getDependentData( GuardianData guardian, DependentInfo info )
 	{
-		logger.info("startDependentProxy - " + info);
+		return this.getDependentData(guardian, info.getCloudName());
+	}
 
-		if( this.guardian == null )
+	private DependentData getDependentData( GuardianData guardian, String cloudName )
+	{
+		DependentData rtn = null;
+		if( guardian == null )
 		{
 			throw new GuardianAuthenticationFailureException("Guardian authentication not performed");
 		}
-		DependentData found = null;
-		for( DependentData dep : this.dependentList )
+		List<DependentData> list = guardian.getDependent();
+		if( list != null )
 		{
-			if( info.getCloudName().equals(dep.getCloudName()) )
+			for( DependentData dep : list )
 			{
-				found = dep;
-				break;
+				if( dep.getCloudName().equals(cloudName) )
+				{
+					rtn = dep;
+					break;
+				}
 			}
 		}
-		if( found == null )
+		if( rtn == null )
 		{
 			throw new DependentCloudNameNotFoundException("cloudname is not a dependent");
 		}
+		return rtn;
+	}
+
+	public synchronized DependentInfo startDependentProxy( DependentInfo info )
+	{
+		logger.info("startDependentProxy - " + info);
+
+		GuardianData guardian = this.getGuardianData(info);
+		DependentData found = this.getDependentData(guardian, info);
 		if( found.getPort() != null )
 		{
-			DependentInfo rtn = getDependentInfo(found);
+			DependentInfo rtn = this.getDependentInfo(found);
 			rtn.setSecretToken(null);
 			return rtn;
 		}
-			
 		DependentData data = ProxyXdiService.verifyDependent(info);
 		if( data == null )
 		{
@@ -310,26 +368,11 @@ public class ProxyService
 	{
 		logger.info("stopDepenentProxy - " + data);
 
-		if( this.guardian == null )
-		{
-			throw new GuardianAuthenticationFailureException("Guardian authentication not performed");
-		}
-		DependentData found = null;
-		for( DependentData dep : this.dependentList )
-		{
-			if( data.getCloudName().equals(dep.getCloudName()) )
-			{
-				found = dep;
-				break;
-			}
-		}
-		if( found == null )
-		{
-			throw new DependentCloudNameNotFoundException("cloudname is not a dependent");
-		}
+		GuardianData guardian = this.getGuardianData(data);
+		DependentData found = this.getDependentData(guardian, data);
 		if( found.getPort() == null )
 		{
-			DependentInfo rtn = getDependentInfo(found);
+			DependentInfo rtn = this.getDependentInfo(found);
 			rtn.setSecretToken(null);
 			return rtn;
 		}
@@ -358,10 +401,8 @@ public class ProxyService
 		GuardianInfo  gInfo = data.getGuardian();
 		DependentInfo dInfo = data.getDependent();
 		AccessInfo    aInfo = data.getAccess();
-		if( this.guardian == null )
-		{
-			throw new GuardianAuthenticationFailureException("Guardian authentication not performed");
-		}
+		GuardianData  guardian = this.getGuardianData(gInfo);
+
 		String type = aInfo.getType();
 		if( AccessInfo.isTypeValid(type) == false )
 		{
@@ -386,8 +427,8 @@ public class ProxyService
 			{
 				throw new GuardianAuthenticationFailureException("Guardian authentication information required");
 			}
-			if(    (this.guardian.getCloudName().equals(gInfo.getCloudName()) == false)
-			    || (this.guardian.getSecretToken().equals(gInfo.getSecretToken()) == false) )
+			if(    (guardian.getCloudName().equals(gInfo.getCloudName()) == false)
+			    || (guardian.getSecretToken().equals(gInfo.getSecretToken()) == false) )
 			{
 				throw new GuardianAuthenticationFailureException("Guardian authentication failure");
 			}
@@ -414,19 +455,7 @@ public class ProxyService
 		{
 			throw new CloudNameInvalidException("Dependent cloud name invalid");
 		}
-		DependentData found = null;
-		for( DependentData dep : this.dependentList )
-		{
-			if( dep.getCloudName().equals(cloudName) )
-			{
-				found = dep;
-				break;
-			}
-		}
-		if( found == null )
-		{
-			throw new DependentCloudNameNotFoundException("cloudname is not a dependent");
-		}
+		DependentData found = this.getDependentData(guardian, cloudName);
 		if( found.getPort() == null )
 		{
 			throw new DependentProxyNotFoundException("Dependent info/proxy not started");
@@ -478,12 +507,9 @@ public class ProxyService
 		return rtn;
 	}
 
-	public List<AccessInfo> getAccessData( String cloudName, String type )
+	public List<AccessInfo> getAccessData( String cloudName, String type, GuardianInfo info )
 	{
-		if( this.guardian == null )
-		{
-			throw new GuardianAuthenticationFailureException("Guardian authentication not performed");
-		}
+		GuardianData guardian = this.getGuardianData(info);
 		if( AccessInfo.isTypeValid(type) == false )
 		{
 			throw new AccessDataTypeInvalidException("Access data type invalid");
@@ -492,19 +518,7 @@ public class ProxyService
 		{
 			throw new CloudNameInvalidException("Dependent cloud name invalid");
 		}
-		DependentData found = null;
-		for( DependentData dep : this.dependentList )
-		{
-			if( dep.getCloudName().equals(cloudName) )
-			{
-				found = dep;
-				break;
-			}
-		}
-		if( found == null )
-		{
-			throw new DependentCloudNameNotFoundException("cloudname is not a dependent");
-		}
+		DependentData found = this.getDependentData(guardian, cloudName);
 		if( found.getPort() == null )
 		{
 			throw new DependentProxyNotFoundException("Dependent info/proxy not started");
@@ -533,23 +547,15 @@ public class ProxyService
 		List<AccessInfo> rtn = new ArrayList<AccessInfo>();
 		for( AccessData acc : list )
 		{
-			AccessInfo info = getAccessInfo(acc);
-			rtn.add(info);
+			AccessInfo ainfo = this.getAccessInfo(acc);
+			rtn.add(ainfo);
 		}
 		return rtn;
 	}
 
-	public AccessInfo deleteAccessData( String cloudName, String type, String uuid, GuardianInfo data )
+	public AccessInfo deleteAccessData( String cloudName, String type, String uuid, GuardianInfo info )
 	{
-		if( this.guardian == null )
-		{
-			throw new GuardianAuthenticationFailureException("Guardian authentication not performed");
-		}
-		if(    (this.guardian.getCloudName().equals(data.getCloudName()) == false)
-		    || (this.guardian.getSecretToken().equals(data.getSecretToken()) == false) )
-		{
-			throw new GuardianAuthenticationFailureException("Guardian authentication failure");
-		}
+		GuardianData guardian = this.getGuardianData(info);
 		if( AccessInfo.isTypeValid(type) == false )
 		{
 			throw new AccessDataTypeInvalidException("Access data type invalid");
@@ -558,19 +564,7 @@ public class ProxyService
 		{
 			throw new CloudNameInvalidException("Dependent cloud name invalid");
 		}
-		DependentData found = null;
-		for( DependentData dep : this.dependentList )
-		{
-			if( dep.getCloudName().equals(cloudName) )
-			{
-				found = dep;
-				break;
-			}
-		}
-		if( found == null )
-		{
-			throw new DependentCloudNameNotFoundException("cloudname is not a dependent");
-		}
+		DependentData found = this.getDependentData(guardian, cloudName);
 		if( found.getPort() == null )
 		{
 			throw new DependentProxyNotFoundException("Dependent info/proxy not started");
@@ -646,12 +640,19 @@ public class ProxyService
 				this.portNumber = this.minPortNumber;
 			}
 			boolean found = false;
-			for( DependentData data : this.dependentList )
+			for( GuardianData guardian : this.guardianList )
 			{
-				if( (data.getPort() != null) && (data.getPort().intValue() == port) )
+				List<DependentData> list = guardian.getDependent();
+				if( list != null )
 				{
-					found = true;
-					break;
+					for( DependentData data : list )
+					{
+						if( (data.getPort() != null) && (data.getPort().intValue() == port) )
+						{
+							found = true;
+							break;
+						}
+					}
 				}
 			}
 			if( found == false )
@@ -660,5 +661,23 @@ public class ProxyService
 			}
 		}
 		throw new ProxyInternalErrorException("Proxy port number exhausted");
+	}
+
+	public ProxyDetailInfo getProxyDetailInfo( AdminUserInfo data )
+	{
+		if(    (ProxyApplication.getConfig().getAdminUsername().equals(data.getUsername()) == false)
+		    || (ProxyApplication.getConfig().getAdminPassword().equals(data.getPassword()) == false) )
+		{
+			throw new AdminUserAuthenticationFailureException("Admin user authentication failure");
+		}
+		ProxyDetailInfo rtn = new ProxyDetailInfo();
+		List<GuardianInfo> list = new ArrayList<GuardianInfo>();
+		for( GuardianData guardian : this.guardianList )
+		{
+			GuardianInfo info = this.getGuardianInfo(guardian);
+			list.add(info);
+		}
+		rtn.setGuardian(list);
+		return rtn;
 	}
 }

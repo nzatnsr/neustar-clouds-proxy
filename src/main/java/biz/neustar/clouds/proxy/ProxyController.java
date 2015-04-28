@@ -55,6 +55,13 @@ public class ProxyController
 
 	@ExceptionHandler
 	@ResponseStatus(HttpStatus.UNAUTHORIZED)
+	public ProxyError handleAdminUserAuthenticationFailureException( AdminUserAuthenticationFailureException e )
+	{
+		return new ProxyError(e.getMessage());
+	}
+
+	@ExceptionHandler
+	@ResponseStatus(HttpStatus.UNAUTHORIZED)
 	public ProxyError handleGuardianAuthenticationFailureException( GuardianAuthenticationFailureException e )
 	{
 		return new ProxyError(e.getMessage());
@@ -144,10 +151,17 @@ public class ProxyController
 		return rtn;
 	}
 
-	@RequestMapping(value = "/proxies/guardian", method=RequestMethod.GET)
-	public @ResponseBody GuardianInfo getGuardian()
+	@RequestMapping(value = "/proxies/detail", method = RequestMethod.GET)
+	public @ResponseBody ProxyDetailInfo getProxyDetailInfo( @RequestBody @Valid final AdminUserInfo data )
 	{
-		GuardianInfo rtn = ProxyService.getInstance().getGuardian();
+		ProxyDetailInfo rtn = ProxyService.getInstance().getProxyDetailInfo(data);
+		return rtn;
+	}
+
+	@RequestMapping(value = "/proxies/guardian", method=RequestMethod.GET)
+	public @ResponseBody GuardianInfo getGuardian( @RequestBody @Valid final GuardianInfo data )
+	{
+		GuardianInfo rtn = ProxyService.getInstance().getGuardian(data);
 		return rtn;
 	}
 
@@ -173,16 +187,16 @@ public class ProxyController
 	}
 
 	@RequestMapping(value = "/proxies/dependents", method=RequestMethod.GET)
-	public @ResponseBody List<DependentInfo> listDependentProxy()
+	public @ResponseBody List<DependentInfo> listDependentProxy( @RequestBody @Valid final GuardianInfo data )
 	{
-		List<DependentInfo> rtn = ProxyService.getInstance().listDependentProxy();
+		List<DependentInfo> rtn = ProxyService.getInstance().listDependentProxy(data);
 		return rtn;
 	}
 
 	@RequestMapping(value = "/proxies/dependents/{cloudName}", method=RequestMethod.GET)
-	public @ResponseBody DependentInfo getDependentProxy( @PathVariable("cloudName") final String cloudName )
+	public @ResponseBody DependentInfo getDependentProxy( @PathVariable("cloudName") final String cloudName, @RequestBody @Valid final GuardianInfo data )
 	{
-		DependentInfo rtn = ProxyService.getInstance().getDependentProxy(cloudName);
+		DependentInfo rtn = ProxyService.getInstance().getDependentProxy(cloudName, data);
 		return rtn;
 	}
 
@@ -200,9 +214,9 @@ public class ProxyController
 		return rtn;
 	}
 	@RequestMapping(value = "/proxies/dependents/{cloudName}/access/{type}", method=RequestMethod.GET)
-	public @ResponseBody List<AccessInfo> getAccessData( @PathVariable("cloudName") final String cloudName, @PathVariable("type") final String type )
+	public @ResponseBody List<AccessInfo> getAccessData( @PathVariable("cloudName") final String cloudName, @PathVariable("type") final String type, @RequestBody @Valid final GuardianInfo data )
 	{
-		List<AccessInfo> rtn = ProxyService.getInstance().getAccessData(cloudName, type);
+		List<AccessInfo> rtn = ProxyService.getInstance().getAccessData(cloudName, type, data);
 		return rtn;
 	}
 
