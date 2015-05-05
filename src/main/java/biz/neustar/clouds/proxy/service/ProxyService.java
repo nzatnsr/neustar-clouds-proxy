@@ -663,10 +663,31 @@ public class ProxyService
 		throw new ProxyInternalErrorException("Proxy port number exhausted");
 	}
 
+	private boolean authenticateAdmin( AdminUserInfo data )
+	{
+		if( ProxyApplication.getConfig().getAdminUsername().equals(data.getUsername()) == false )
+		{
+			return false;
+		}
+		try
+		{
+			String digest = ProxyUtil.getDigest(ProxyApplication.getConfig().getAdminSalt(), data.getUsername(), data.getPassword());
+			if( ProxyApplication.getConfig().getAdminPassword().equals(digest) == false )
+			{
+				return false;
+			}
+		}
+		catch( java.io.UnsupportedEncodingException ex )
+		{
+			logger.error("getDigest() failed", ex);
+			return false;
+		}
+		return true;
+	}
+
 	public ProxyDetailInfo getProxyDetailInfo( AdminUserInfo data )
 	{
-		if(    (ProxyApplication.getConfig().getAdminUsername().equals(data.getUsername()) == false)
-		    || (ProxyApplication.getConfig().getAdminPassword().equals(data.getPassword()) == false) )
+		if( this.authenticateAdmin(data) == false )
 		{
 			throw new AdminUserAuthenticationFailureException("Admin user authentication failure");
 		}

@@ -27,6 +27,9 @@ public class ProxyConfig
 	@Value("${proxy.xdi.env}")
 	private String xdiEnv;
 
+	@Value("${proxy.admin.salt}")
+	private String adminSalt;
+
 	@Value("${proxy.admin.username}")
 	private String adminUsername;
 
@@ -75,6 +78,16 @@ public class ProxyConfig
 	public void setXdiEnv( String xdiEnv )
 	{
 		this.xdiEnv = xdiEnv;
+	}
+
+	public String getAdminSalt()
+	{
+		return this.adminSalt;
+	}
+
+	public void setAdminSalt( String adminSalt )
+	{
+		this.adminSalt = adminSalt;
 	}
 
 	public String getAdminUsername()
