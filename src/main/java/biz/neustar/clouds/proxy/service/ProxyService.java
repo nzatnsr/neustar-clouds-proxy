@@ -696,6 +696,10 @@ public class ProxyService
 		for( GuardianData guardian : this.guardianList )
 		{
 			GuardianInfo info = this.getGuardianInfo(guardian);
+			if( Boolean.TRUE.equals(ProxyApplication.getConfig().getAdminShowToken()) != true )
+			{
+				info.setSecretToken(null);
+			}
 			list.add(info);
 		}
 		rtn.setGuardian(list);

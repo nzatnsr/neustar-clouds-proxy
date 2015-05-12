@@ -36,6 +36,9 @@ public class ProxyConfig
 	@Value("${proxy.admin.password}")
 	private String adminPassword;
 
+	@Value("${proxy.admin.show.token}")
+	private Boolean adminShowToken;
+
 	public ProxyConfig()
 	{
 	}
@@ -108,5 +111,15 @@ public class ProxyConfig
 	public void setAdminPassword( String adminPassword )
 	{
 		this.adminPassword = adminPassword;
+	}
+
+	public Boolean getAdminShowToken()
+	{
+		return this.adminShowToken;
+	}
+
+	public void setAdminShowToken( Boolean adminShowToken )
+	{
+		this.adminShowToken = this.adminShowToken;
 	}
 }
