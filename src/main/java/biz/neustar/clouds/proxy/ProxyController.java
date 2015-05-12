@@ -165,6 +165,13 @@ public class ProxyController
 		return rtn;
 	}
 
+	@RequestMapping(value = "/proxies/guardian", method=RequestMethod.PUT)
+	public @ResponseBody GuardianInfo getGuardianWithPut( @RequestBody @Valid final GuardianInfo data )
+	{
+		GuardianInfo rtn = ProxyService.getInstance().getGuardian(data);
+		return rtn;
+	}
+
 	@RequestMapping(value = "/proxies/guardian", method=RequestMethod.POST)
 	public @ResponseBody GuardianInfo setGuardian( @RequestBody @Valid final GuardianInfo data )
 	{
@@ -193,8 +200,22 @@ public class ProxyController
 		return rtn;
 	}
 
+	@RequestMapping(value = "/proxies/dependents", method=RequestMethod.PUT)
+	public @ResponseBody List<DependentInfo> listDependentProxyWithPut( @RequestBody @Valid final GuardianInfo data )
+	{
+		List<DependentInfo> rtn = ProxyService.getInstance().listDependentProxy(data);
+		return rtn;
+	}
+
 	@RequestMapping(value = "/proxies/dependents/{cloudName}", method=RequestMethod.GET)
 	public @ResponseBody DependentInfo getDependentProxy( @PathVariable("cloudName") final String cloudName, @RequestBody @Valid final GuardianInfo data )
+	{
+		DependentInfo rtn = ProxyService.getInstance().getDependentProxy(cloudName, data);
+		return rtn;
+	}
+
+	@RequestMapping(value = "/proxies/dependents/{cloudName}", method=RequestMethod.PUT)
+	public @ResponseBody DependentInfo getDependentProxyWithPut( @PathVariable("cloudName") final String cloudName, @RequestBody @Valid final GuardianInfo data )
 	{
 		DependentInfo rtn = ProxyService.getInstance().getDependentProxy(cloudName, data);
 		return rtn;
@@ -213,8 +234,16 @@ public class ProxyController
 		AccessInfo rtn = ProxyService.getInstance().addAccessData(cloudName, data);
 		return rtn;
 	}
+
 	@RequestMapping(value = "/proxies/dependents/{cloudName}/access/{type}", method=RequestMethod.GET)
 	public @ResponseBody List<AccessInfo> getAccessData( @PathVariable("cloudName") final String cloudName, @PathVariable("type") final String type, @RequestBody @Valid final GuardianInfo data )
+	{
+		List<AccessInfo> rtn = ProxyService.getInstance().getAccessData(cloudName, type, data);
+		return rtn;
+	}
+
+	@RequestMapping(value = "/proxies/dependents/{cloudName}/access/{type}", method=RequestMethod.PUT)
+	public @ResponseBody List<AccessInfo> getAccessDataWithPut( @PathVariable("cloudName") final String cloudName, @PathVariable("type") final String type, @RequestBody @Valid final GuardianInfo data )
 	{
 		List<AccessInfo> rtn = ProxyService.getInstance().getAccessData(cloudName, type, data);
 		return rtn;
