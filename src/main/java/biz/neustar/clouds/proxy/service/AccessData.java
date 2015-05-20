@@ -10,7 +10,7 @@ import org.littleshoot.proxy.impl.*;
 import org.apache.commons.beanutils.*;
 
 import java.net.URL;
-import xdi2.core.syntax.CloudNumber;
+import xdi2.core.xri3.CloudNumber;
 
 import org.apache.commons.lang.StringUtils;
 
