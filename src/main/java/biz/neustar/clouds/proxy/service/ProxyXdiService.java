@@ -53,6 +53,8 @@ import xdi2.messaging.Message;
 import xdi2.messaging.MessageEnvelope;
 import xdi2.messaging.MessageResult;
 
+import xdi2.client.http.XDIHttpClient;
+
 public class ProxyXdiService
 {
 	private static final Logger logger = LoggerFactory.getLogger(ProxyXdiService.class);
@@ -71,6 +73,18 @@ public class ProxyXdiService
 		else if( ProxyConfig.XDI_ENV_OTE.equals(ProxyApplication.getConfig().getXdiEnv()) == true )
 		{
 			discoveryClient = XDIDiscoveryClient.NEUSTAR_OTE_DISCOVERY_CLIENT;
+		}
+		else if( ProxyConfig.XDI_ENV_CUSTOM.equals(ProxyApplication.getConfig().getXdiEnv()) == true )
+		{
+			if( ProxyApplication.getConfig().getXdiDiscoveryUrl() != null )
+			{
+				discoveryClient = new XDIDiscoveryClient(new XDIHttpClient(ProxyApplication.getConfig().getXdiDiscoveryUrl()));
+			}
+			else
+			{
+				logger.error("Custom XDI discovery URL not specified");
+				discoveryClient = XDIDiscoveryClient.NEUSTAR_OTE_DISCOVERY_CLIENT;
+			}
 		}
 		else
 		{

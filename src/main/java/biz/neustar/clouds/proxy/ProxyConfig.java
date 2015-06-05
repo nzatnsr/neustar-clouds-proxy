@@ -12,8 +12,9 @@ import org.springframework.beans.factory.annotation.Value;
 @Component
 public class ProxyConfig
 {
-	public static final String XDI_ENV_OTE  = "ote";
-	public static final String XDI_ENV_PROD = "prod";
+	public static final String XDI_ENV_OTE    = "ote";
+	public static final String XDI_ENV_PROD   = "prod";
+	public static final String XDI_ENV_CUSTOM = "custom";
 
 	@Value("${proxy.server.hostname}")
 	private String hostname;
@@ -26,6 +27,9 @@ public class ProxyConfig
 
 	@Value("${proxy.xdi.env}")
 	private String xdiEnv;
+
+	@Value("${proxy.xdi.discovery.url}")
+	private String xdiDiscoveryUrl;
 
 	@Value("${proxy.admin.salt}")
 	private String adminSalt;
@@ -81,6 +85,16 @@ public class ProxyConfig
 	public void setXdiEnv( String xdiEnv )
 	{
 		this.xdiEnv = xdiEnv;
+	}
+
+	public String getXdiDiscoveryUrl()
+	{
+		return this.xdiDiscoveryUrl;
+	}
+
+	public void setXdiDiscoveryUrl( String url )
+	{
+		this.xdiDiscoveryUrl = url;
 	}
 
 	public String getAdminSalt()
