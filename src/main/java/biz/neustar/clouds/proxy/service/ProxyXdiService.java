@@ -26,27 +26,26 @@ import xdi2.client.http.XDIHttpClient;
 import xdi2.client.util.XDIClientUtil;
 import xdi2.client.exceptions.Xdi2ClientException;
 import xdi2.discovery.XDIDiscoveryClient;
-import xdi2.discovery.XDIDiscoveryException;
 import xdi2.discovery.XDIDiscoveryResult;
 import xdi2.core.Graph;
-import xdi2.core.Literal;
+import xdi2.core.LiteralNode;
 import xdi2.core.Statement;
 import xdi2.core.constants.XDIConstants;
 import xdi2.core.constants.XDIDictionaryConstants;
 import xdi2.core.constants.XDILinkContractConstants;
-import xdi2.core.features.linkcontracts.GenericLinkContract;
-import xdi2.core.features.linkcontracts.PublicLinkContract;
-import xdi2.core.features.linkcontracts.RootLinkContract;
+import xdi2.core.features.linkcontracts.instance.GenericLinkContract;
+import xdi2.core.features.linkcontracts.instance.PublicLinkContract;
+import xdi2.core.features.linkcontracts.instance.RootLinkContract;
 import xdi2.core.features.nodetypes.XdiAttribute;
-import xdi2.core.features.nodetypes.XdiLocalRoot;
+import xdi2.core.features.nodetypes.XdiCommonRoot;
 
 import xdi2.core.impl.memory.MemoryGraphFactory;
-import xdi2.core.util.XDI3Util;
-import xdi2.core.xri3.CloudName;
-import xdi2.core.xri3.CloudNumber;
-import xdi2.core.xri3.XDI3Segment;
-import xdi2.core.xri3.XDI3Statement;
-import xdi2.core.xri3.XDI3SubSegment;
+import xdi2.core.util.XDIAddressUtil;
+import xdi2.core.syntax.CloudName;
+import xdi2.core.syntax.CloudNumber;
+import xdi2.core.syntax.XDIAddress;
+import xdi2.core.syntax.XDIStatement;
+import xdi2.core.syntax.XDIArc;
 import xdi2.discovery.XDIDiscoveryClient;
 import xdi2.discovery.XDIDiscoveryResult;
 import xdi2.messaging.Message;
@@ -100,16 +99,8 @@ public class ProxyXdiService
 		XDIDiscoveryResult result = null;
 		try
 		{
-			result = getXDIDiscoveryClient().discoverFromRegistry(cloudName.getXri(), null);
+			result = getXDIDiscoveryClient().discoverFromRegistry(cloudName.getXDIAddress(), null);
 		}
-		/**
-		catch( XDIDiscoveryException ex )
-		{
-			String error = "Guardian discovery failure";
-			logger.error(error + " - " + info.getCloudName(), ex);
-			throw new GuardianAuthenticationFailureException(error);
-		}
-		**/
 		catch( Xdi2ClientException ex )
 		{
 			String error = "Guardian discovery client failure";
@@ -121,7 +112,7 @@ public class ProxyXdiService
 		{
 			throw new DependentAuthenticationFailureException("Cannot find guardian cloud number");
 		}
-		String url = result.getXdiEndpointUri();
+		URL url = result.getXdiEndpointUrl();
 		try
 		{
 			XDIClientUtil.authenticateSecretToken(cloudNumber, url, info.getSecretToken());
@@ -135,16 +126,7 @@ public class ProxyXdiService
 		}
 		GuardianData data = new GuardianData(info);
 		data.setCloudNumber(cloudNumber);
-		try
-		{
-			data.setCloudUrl(new URL(url));
-		}
-		catch( java.net.MalformedURLException mex )
-		{
-			String error = "Guardian authentication failure - malformed url " + url;
-			logger.error(error + " - " + info.getCloudName(), mex);
-			throw new GuardianAuthenticationFailureException(error);
-		}
+		data.setCloudUrl(url);
 		return data;
 	}
 
@@ -154,16 +136,8 @@ public class ProxyXdiService
 		XDIDiscoveryResult result = null;
 		try
 		{
-			result = getXDIDiscoveryClient().discoverFromRegistry(cloudName.getXri(), null);
+			result = getXDIDiscoveryClient().discoverFromRegistry(cloudName.getXDIAddress(), null);
 		}
-		/**
-		catch( XDIDiscoveryException ex )
-		{
-			String error = "Dependent discovery failure";
-			logger.error(error + " - " + info.getCloudName(), ex);
-			throw new DependentAuthenticationFailureException(error);
-		}
-		**/
 		catch( Xdi2ClientException ex )
 		{
 			String error = "Dependent discovery client failure";
@@ -175,7 +149,7 @@ public class ProxyXdiService
 		{
 			throw new DependentAuthenticationFailureException("Cannot find dependent cloud number");
 		}
-		String url = result.getXdiEndpointUri();
+		URL url = result.getXdiEndpointUrl();
 		try
 		{
 			XDIClientUtil.authenticateSecretToken(cloudNumber, url, info.getSecretToken());
@@ -189,16 +163,7 @@ public class ProxyXdiService
 		}
 		DependentData data = new DependentData(info);
 		data.setCloudNumber(cloudNumber);
-		try
-		{
-			data.setCloudUrl(new URL(url));
-		}
-		catch( java.net.MalformedURLException mex )
-		{
-			String error = "Dependent authentication failure - malformed url " + url;
-			logger.error(error + " - " + info.getCloudName(), mex);
-			throw new GuardianAuthenticationFailureException(error);
-		}
+		data.setCloudUrl(url);
 		return data;
 	}
 
@@ -206,17 +171,17 @@ public class ProxyXdiService
 	{
 		List<DependentData> rtn = null;
 
-		XDI3Segment isGuardian = XDI3Segment.create("$is#guardian");
+		XDIAddress isGuardian = XDIAddress.create("$is#guardian");
 
 		try
 		{
 			MessageEnvelope getDependentMessageEnvelope = new MessageEnvelope();
-			Message getDependentMessage = getDependentMessageEnvelope.createMessage(guardian.getCloudNumber().getXri());
-			getDependentMessage.setToPeerRootXri(guardian.getCloudNumber().getPeerRootXri());
-			getDependentMessage.setLinkContractXri(RootLinkContract.createRootLinkContractXri(guardian.getCloudNumber().getXri()));
+			Message getDependentMessage = getDependentMessageEnvelope.createMessage(guardian.getCloudNumber().getXDIAddress());
+			getDependentMessage.setToPeerRootXDIArc(guardian.getCloudNumber().getPeerRootXDIArc());
+			getDependentMessage.setLinkContract(RootLinkContract.class);
 			getDependentMessage.setSecretToken(guardian.getSecretToken());
-			getDependentMessage.createGetOperation(XDI3Statement.fromRelationComponents(guardian.getCloudNumber().getXri(), isGuardian, XDIConstants.XRI_S_VARIABLE));
-			MessageResult getDependentResult = new XDIHttpClient(guardian.getCloudUrl().toString()).send(getDependentMessageEnvelope, null);
+			getDependentMessage.createGetOperation(XDIStatement.fromRelationComponents(guardian.getCloudNumber().getXDIAddress(), isGuardian, XDIConstants.XDI_ADD_COMMON_VARIABLE));
+			MessageResult getDependentResult = new XDIHttpClient(guardian.getCloudUrl()).send(getDependentMessageEnvelope, null);
 
 			logger.info(getDependentResult.getGraph().toString("XDI DISPLAY", null));
 
@@ -251,19 +216,19 @@ public class ProxyXdiService
 		try
 		{
 			CloudNumber cloudNumber = CloudNumber.create(stmt.getObject().toString());
-			XDIDiscoveryResult result = getXDIDiscoveryClient().discoverFromRegistry(cloudNumber.getXri(), null);
-			String cloudUrl = result.getXdiEndpointUri();
+			XDIDiscoveryResult result = getXDIDiscoveryClient().discoverFromRegistry(cloudNumber.getXDIAddress(), null);
+			URL cloudUrl = result.getXdiEndpointUrl();
 
 			Graph tempGraph = MemoryGraphFactory.getInstance().openGraph();
 			MessageEnvelope getMessageEnvelope = new MessageEnvelope();
-			Message getMessage = getMessageEnvelope.createMessage(cloudNumber.getXri());
-			getMessage.setToPeerRootXri(cloudNumber.getPeerRootXri());
-			getMessage.setLinkContractXri(PublicLinkContract.createPublicLinkContractXri(cloudNumber.getXri()));
-			getMessage.createGetOperation(XDI3Statement.fromRelationComponents(cloudNumber.getXri(), XDIDictionaryConstants.XRI_S_IS_REF, XDIConstants.XRI_S_VARIABLE));
+			Message getMessage = getMessageEnvelope.createMessage(cloudNumber.getXDIAddress());
+			getMessage.setToPeerRootXDIArc(cloudNumber.getPeerRootXDIArc());
+			getMessage.setLinkContract(PublicLinkContract.class);
+			getMessage.createGetOperation(XDIStatement.fromRelationComponents(cloudNumber.getXDIAddress(), XDIDictionaryConstants.XDI_ADD_IS_REF, XDIConstants.XDI_ADD_COMMON_VARIABLE));
 			MessageResult getMessageResult = new XDIHttpClient(cloudUrl).send(getMessageEnvelope, null);
 			for( Statement stmt1 : getMessageResult.getGraph().getRootContextNode().getAllStatements())
 			{
-				if( XDIDictionaryConstants.XRI_S_IS_REF.equals(stmt1.getPredicate()) == false )
+				if( XDIDictionaryConstants.XDI_ADD_IS_REF.equals(stmt1.getPredicate()) == false )
 				{
 					logger.debug("getDependentData() - Ignore " + stmt1);
 					continue;
@@ -273,7 +238,7 @@ public class ProxyXdiService
 				DependentData rtn = new DependentData();
 				rtn.setCloudName(cloudName);
 				rtn.setCloudNumber(cloudNumber);
-				rtn.setCloudUrl(new URL(cloudUrl));
+				rtn.setCloudUrl(cloudUrl);
 				return rtn;
 			}
 		}
@@ -297,22 +262,22 @@ public class ProxyXdiService
 			}
 			CloudNumber cloudNumber = data.getCloudNumber();
 			Graph tempGraph = MemoryGraphFactory.getInstance().openGraph();
-			XdiAttribute proxyServerMessage = XdiLocalRoot.findLocalRoot(tempGraph)
-				.getXdiEntity(cloudNumber.getXri(), true)
-				.getXdiAttributeSingleton(XDI3Segment.create("<#proxy>"), true)
-				.getXdiAttributeSingleton(XDI3Segment.create("<#server>"), true);
-			proxyServerMessage.getXdiValue(true).setLiteralString(server);
+			XdiAttribute proxyServerMessage = XdiCommonRoot.findCommonRoot(tempGraph)
+				.getXdiEntity(cloudNumber.getXDIAddress(), true)
+				.getXdiAttributeSingleton(XDIAddress.create("<#proxy>"), true)
+				.getXdiAttributeSingleton(XDIAddress.create("<#server>"), true);
+			proxyServerMessage.setLiteralDataString(server);
 			logger.info("Setting proxy server as '" + server + "'");
 			logger.info(tempGraph.toString("XDI DISPLAY", null));
 
 			MessageEnvelope messageEnvelope = new MessageEnvelope();
-			Message message = messageEnvelope.createMessage(cloudNumber.getXri());
-			message.setToPeerRootXri(cloudNumber.getPeerRootXri());
-			message.setLinkContractXri(RootLinkContract.createRootLinkContractXri(cloudNumber.getXri()));
+			Message message = messageEnvelope.createMessage(cloudNumber.getXDIAddress());
+			message.setToPeerRootXDIArc(cloudNumber.getPeerRootXDIArc());
+			message.setLinkContract(RootLinkContract.class);
 			message.setSecretToken(data.getSecretToken());
 			message.createSetOperation(tempGraph);
 
-			new XDIHttpClient(data.getCloudUrl().toString()).send(messageEnvelope, null);
+			new XDIHttpClient(data.getCloudUrl()).send(messageEnvelope, null);
 		}
 		catch( Exception e )
 		{
@@ -328,22 +293,22 @@ public class ProxyXdiService
 		{
 			CloudNumber cloudNumber = data.getCloudNumber();
 			MessageEnvelope getMessageEnvelope = new MessageEnvelope();
-			Message getMessage = getMessageEnvelope.createMessage(cloudNumber.getXri());
-			getMessage.setToPeerRootXri(cloudNumber.getPeerRootXri());
-			getMessage.setLinkContractXri(RootLinkContract.createRootLinkContractXri(cloudNumber.getXri()));
+			Message getMessage = getMessageEnvelope.createMessage(cloudNumber.getXDIAddress());
+			getMessage.setToPeerRootXDIArc(cloudNumber.getPeerRootXDIArc());
+			getMessage.setLinkContract(RootLinkContract.class);
 			getMessage.setSecretToken(data.getSecretToken());
-			getMessage.createGetOperation(XDI3Statement.fromRelationComponents(cloudNumber.getXri(), XDI3Segment.create("<#proxy>"), XDI3Segment.create("[<#" + type + ">]")));
-			MessageResult getMessageResult = new XDIHttpClient(data.getCloudUrl().toString()).send(getMessageEnvelope, null);
+			getMessage.createGetOperation(XDIAddressUtil.concatXDIAddresses(cloudNumber.getXDIAddress(), XDIAddress.create("<#proxy>"), XDIAddress.create("[<#" + type + ">]")));
+			MessageResult getMessageResult = new XDIHttpClient(data.getCloudUrl()).send(getMessageEnvelope, null);
 
 			logger.info(getMessageResult.getGraph().toString("XDI DISPLAY", null));
 
-			for( Literal literal : getMessageResult.getGraph().getRootContextNode().getAllLiterals() )
+			for( LiteralNode literal : getMessageResult.getGraph().getRootContextNode().getAllLiterals() )
 			{
 				String uuid = null;
-				List<XDI3SubSegment> list = literal.getStatement().getSubject().getSubSegments();
+				List<XDIArc> list = literal.getStatement().getSubject().getXDIArcs();
 				if( list != null )
 				{
-					for( XDI3SubSegment arc : list )
+					for( XDIArc arc : list )
 					{
 						String s = arc.getLiteral();
 						if( (s != null) && s.startsWith(":uuid:") )
@@ -383,33 +348,33 @@ public class ProxyXdiService
 		{
 			CloudNumber cloudNumber = data.getCloudNumber();
 			Graph tempGraph = MemoryGraphFactory.getInstance().openGraph();
-			XdiAttribute proxyAccessMessage = XdiLocalRoot.findLocalRoot(tempGraph)
-				.getXdiEntity(cloudNumber.getXri(), true)
-				.getXdiAttributeSingleton(XDI3Segment.create("<#proxy>"), true)
-				.getXdiAttributeCollection(XDI3Segment.create("[<#" + type + ">]"), true)
-				.setXdiMemberUnordered(null);
-			proxyAccessMessage.getXdiValue(true).setLiteralString(AccessData.fromAccessData(acc));
+			XdiAttribute proxyAccessMessage = XdiCommonRoot.findCommonRoot(tempGraph)
+				.getXdiEntity(cloudNumber.getXDIAddress(), true)
+				.getXdiAttributeSingleton(XDIAddress.create("<#proxy>"), true)
+				.getXdiAttributeCollection(XDIAddress.create("[<#" + type + ">]"), true)
+				.setXdiMemberUnordered(true, false);
+			proxyAccessMessage.setLiteralDataString(AccessData.fromAccessData(acc));
 
 			logger.info(tempGraph.toString("XDI DISPLAY", null));
 
 			MessageEnvelope messageEnvelope = new MessageEnvelope();
-			Message message = messageEnvelope.createMessage(cloudNumber.getXri());
-			message.setToPeerRootXri(cloudNumber.getPeerRootXri());
-			message.setLinkContractXri(RootLinkContract.createRootLinkContractXri(cloudNumber.getXri()));
+			Message message = messageEnvelope.createMessage(cloudNumber.getXDIAddress());
+			message.setToPeerRootXDIArc(cloudNumber.getPeerRootXDIArc());
+			message.setLinkContract(RootLinkContract.class);
 			message.setSecretToken(data.getSecretToken());
 			message.createSetOperation(tempGraph);
 
-			MessageResult messageResult = new XDIHttpClient(data.getCloudUrl().toString()).send(messageEnvelope, null);
+			MessageResult messageResult = new XDIHttpClient(data.getCloudUrl()).send(messageEnvelope, null);
 
 			logger.info(messageResult.getGraph().toString("XDI DISPLAY", null));
 
-			for( Literal literal : tempGraph.getRootContextNode().getAllLiterals() )
+			for( LiteralNode literal : tempGraph.getRootContextNode().getAllLiterals() )
 			{
 				String uuid = null;
-				List<XDI3SubSegment> list = literal.getStatement().getSubject().getSubSegments();
+				List<XDIArc> list = literal.getStatement().getSubject().getXDIArcs();
 				if( list != null )
 				{
-					for( XDI3SubSegment arc : list )
+					for( XDIArc arc : list )
 					{
 						String s = arc.getLiteral();
 						if( (s != null) && s.startsWith(":uuid:") )
@@ -440,12 +405,12 @@ public class ProxyXdiService
 			CloudNumber cloudNumber = data.getCloudNumber();
 
 			MessageEnvelope messageEnvelope = new MessageEnvelope();
-			Message message = messageEnvelope.createMessage(cloudNumber.getXri());
-			message.setToPeerRootXri(cloudNumber.getPeerRootXri());
-			message.setLinkContractXri(RootLinkContract.createRootLinkContractXri(cloudNumber.getXri()));
+			Message message = messageEnvelope.createMessage(cloudNumber.getXDIAddress());
+			message.setToPeerRootXDIArc(cloudNumber.getPeerRootXDIArc());
+			message.setLinkContract(RootLinkContract.class);
 			message.setSecretToken(data.getSecretToken());
-			message.createDelOperation(XDI3Util.concatXris(cloudNumber.getXri(), XDI3Segment.create("<#proxy>"), XDI3Segment.create("[<#" + type + ">]"), XDI3Segment.create("<!:uuid:" + uuid + ">")));
-			MessageResult messageResult = new XDIHttpClient(data.getCloudUrl().toString()).send(messageEnvelope, null);
+			message.createDelOperation(XDIAddressUtil.concatXDIAddresses(cloudNumber.getXDIAddress(), XDIAddress.create("<#proxy>"), XDIAddress.create("[<#" + type + ">]"), XDIAddress.create("<!:uuid:" + uuid + ">")));
+			MessageResult messageResult = new XDIHttpClient(data.getCloudUrl()).send(messageEnvelope, null);
 
 			logger.info(messageResult.getGraph().toString("XDI DISPLAY", null));
 		}

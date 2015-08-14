@@ -10,7 +10,7 @@ import org.littleshoot.proxy.impl.*;
 import org.apache.commons.beanutils.*;
 
 import java.net.URL;
-import xdi2.core.xri3.CloudNumber;
+import xdi2.core.syntax.CloudNumber;
 
 public class DependentData extends DependentInfo
 {
